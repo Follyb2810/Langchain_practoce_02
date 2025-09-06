@@ -1,0 +1,30 @@
+FROM python:3.11-slim
+
+# Set working dir
+WORKDIR /app
+
+# Install system deps
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Jupyter + AI deps
+RUN pip install --no-cache-dir \
+    jupyterlab \
+    langchain \
+    langgraph \
+    fastapi \
+    uvicorn[standard] \
+    transformers \
+    torch
+
+# Expose Jupyter port
+EXPOSE 8888
+
+# Start Jupyter
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--allow-root", "--no-browser"]
+
+# docker build -t jupyter-triage .
+# docker run -p 8888:8888 -v $(pwd):/app jupyter-triage

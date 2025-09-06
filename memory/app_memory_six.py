@@ -1,0 +1,101 @@
+from langchain.prompts import (
+    HumanMessagePromptTemplate,
+    SystemMessagePromptTemplate,
+    ChatPromptTemplate,
+    MessagesPlaceholder,
+)
+from langchain_ollama import ChatOllama
+from langchain.schema.output_parser import StrOutputParser
+from langchain_core.chat_history import InMemoryChatMessageHistory
+from langchain_core.runnables.history import RunnableWithMessageHistory
+
+
+# -------------------------------
+# 1. Setup LLM
+# -------------------------------
+llm = ChatOllama(model="mistral", base_url="http://localhost:11434")
+
+sys_prompt = "You are a helpful assistant called Follyb."
+
+# -------------------------------
+# 2. Chat prompt template
+# -------------------------------
+prompt_template = ChatPromptTemplate.from_messages(
+    [
+        SystemMessagePromptTemplate.from_template(sys_prompt),
+        MessagesPlaceholder(variable_name="history"),
+        HumanMessagePromptTemplate.from_template("{query}"),
+    ]
+)
+
+pipeline = prompt_template | llm | StrOutputParser()
+
+# -------------------------------
+# 3. Chat session management
+# -------------------------------
+chat_map = {}
+
+
+def get_chat_memory(session_id: str):
+    if session_id not in chat_map:
+        chat_map[session_id] = InMemoryChatMessageHistory()
+    return chat_map[session_id]
+
+
+pipeline_with_history = RunnableWithMessageHistory(
+    pipeline,
+    get_session_history=get_chat_memory,
+    input_messages_key="query",
+    history_messages_key="history",
+)
+
+# -------------------------------
+# 4. Preload fake conversation
+# -------------------------------
+session_id = "user123"
+history = get_chat_memory(session_id)
+
+history.add_user_message("Hi, my name is Folly")
+history.add_ai_message("Hey Folly, what's up? I'm an AI model called Folyb.")
+
+history.add_user_message("I'm researching the different types of conversational memory")
+history.add_ai_message("That's interesting, what are some examples?")
+
+history.add_user_message(
+    "I have been looking at ConversationBufferMemory and ConversationBufferWindowMemory"
+)
+history.add_ai_message("That's interesting, what's the difference?")
+
+history.add_user_message("Buffer memory just stores the entire conversation, right?")
+history.add_ai_message("That makes sense, what about ConversationBufferWindowMemory?")
+
+history.add_user_message(
+    "Buffer window memory stores the last k messages, dropping the rest"
+)
+history.add_ai_message("Very cool!")
+
+history.add_user_message("So which one should I use if I want to keep the entire history?")
+history.add_ai_message(
+    "You should use ConversationBufferMemory for the full history. "
+    "If you only want the last k turns, use ConversationBufferWindowMemory."
+)
+
+history.add_user_message("Can you give me a quick code example of BufferWindowMemory?")
+history.add_ai_message(
+    "Sure! You can initialize it with something like:\n\n"
+    "```python\n"
+    "from langchain.memory import ConversationBufferWindowMemory\n"
+    "memory = ConversationBufferWindowMemory(k=3, return_messages=True)\n"
+    "```"
+)
+
+
+# -------------------------------
+# 5. Run a query with history
+# -------------------------------
+response = pipeline_with_history.invoke(
+    {"query": "What is my name again?"},
+    config={"configurable": {"session_id": session_id}},
+)
+
+print("Bot:", response)
